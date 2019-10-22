@@ -211,6 +211,7 @@ while True:
           countCurrentRGB += 1
           if countCurrentRGB >= lenRGB:
             lenRGB = 0
+            curCom['RGB'] = ''
             continue
         if timeChangeRGB[numBefore] > 0 and quantFlag == 0 :
           # Плавное изменение цвета
@@ -255,13 +256,14 @@ while True:
           countCurrentSTR += 1
           if countCurrentSTR >= lenSTR:
             lenSTR = 0
+            curCom['STR'] = ''
             continue
         timeRandomSTR = str(timeSTR[countCurrentSTR]).split('-')
         if len(timeRandomSTR) != 2:
           timeS = int(timeRandomSTR[0])
         else:
           timeS = randint(int(timeRandomSTR[0]), int(timeRandomSTR[1]))
-          timeSliceSTR = timeS
+        timeSliceSTR = timeS
         pinSTR.value(int(onOffSTR[countCurrentSTR]))
         timeCurrentSTR = time.ticks_ms()
     if lenLGT > 0:
@@ -273,13 +275,14 @@ while True:
           countCurrentLGT += 1
           if countCurrentLGT >= lenLGT:
             lenLGT = 0
+            curCom['LGT'] = ''
             continue
         timeRandomLGT = str(timeLGT[countCurrentLGT]).split('-')
         if len(timeRandomLGT) != 2:
           timeSL = int(timeRandomLGT[0])
         else:
           timeSL = randint(int(timeRandomLGT[0]), int(timeRandomLGT[1]))
-          timeSliceLGT = timeSL
+        timeSliceLGT = timeSL
         pinLGT.value(int(onOffLGT[countCurrentLGT]))
         timeCurrentLGT = time.ticks_ms()
       
