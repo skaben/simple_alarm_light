@@ -6,7 +6,11 @@ import network
 
 import urandom
 
-quantNum = 20
+quantNum = 50
+
+pinD = dict()
+pinD['STR'] = pinSTR
+pinD['LGT'] = pinLGT
 
 newCom = dict()
 curCom = dict()
@@ -28,33 +32,93 @@ bD = 0
 gD = 0
 lastRGB = 0
 
-lenSTR = 0
-modeSTR = ''
-onOffSTR = []
-timeCurrentSTR = 0
-countCurrentSTR = 0
-timeSliceSTR = 0
-timeSTR = []
-
-lenLGT = 0
-modeLGT = ''
-onOffLGT = []
-timeCurrentLGT = 0
-countCurrentLGT = 0
-timeSliceLGT = 0
-timeLGT = []
+lenD =  dict()
+lenD['STR'] = 0
+lenD['LGT'] = 0
+modeD = dict()
+modeD['STR'] = ''
+modeD['LGT'] = ''
+onOff = dict()
+onOff['STR'] = []
+onOff['LGT'] = []
+timePhase = dict()
+timePhase['STR'] = []
+timePhase['LGT'] = []
+timeCurrent = dict()
+timeCurrent['STR'] = 0
+timeCurrent['LGT'] = 0
+countCurrent = dict()
+countCurrent['STR'] = 0
+countCurrent['LGT'] = 0
+timeSlice = dict()
+timeSlice['STR'] = 0
+timeSlice['LGT'] = 0
 
 def randint(min, max):
-    span = max - min + 1
-    div = 0x3fffffff // span
-    offset = urandom.getrandbits(30) // div
-    val = min + offset
-    return val
+  span = max - min + 1
+  div = 0x3fffffff // span
+  offset = urandom.getrandbits(30) // div
+  val = min + offset
+  return val
+ 
+def parse_discr(chanName):
+  global curCom, newCom, pinD
+  global lenD, modeD, onOff, timePhase, timeCurrent, countCurrent, timeSlice
+  if newCom[chanName] != curCom[chanName]:
+    fields = newCom[chanName].split('/')
+    if len(fields) < 2:
+      if fields[0] == u'RESET':
+        machine.reset()
+        return
+      else:
+        return
+    if (len(fields)-1)%2 != 0:
+      return
+    curCom[chanName] = newCom[chanName]
+    modeD[chanName] = fields[len(fields)-1]
+    lenD[chanName] = int(len(fields)/2)
+    del onOff[chanName][:]
+    del timePhase[chanName][:]
+    i = 0
+    while i < lenD[chanName]:
+      onOff[chanName].append(fields[i*2])
+      timePhase[chanName].append(fields[i*2+1])
+      i = i + 1
+    pinD[chanName].value(onOff[chanName][0])
+    timeRandom = str(timePhase[chanName][0]).split('-')
+    if len(timeRandom) != 2:
+      timeS = int(timeRandom[0])
+    else:
+      timeS = int(randint(int(timeRandom[0]), int(timeRandom[1])))
+    timeSlice[chanName] = timeS
+    countCurrent[chanName] = 0
+    timeCurrent[chanName] = time.ticks_ms()
 
-def parse_command(newCom):
+def exec_discr(chanName):  
+  global curCom, pinD
+  global lenD, modeD, onOff, timePhase, timeCurrent, countCurrent, timeSlice
+  if (time.ticks_ms() - timeCurrent[chanName]) >= timeSlice[chanName]:
+    if modeD[chanName] == 'C':
+      countCurrent[chanName] = (countCurrent[chanName] + 1) % lenD[chanName]
+    elif modeD[chanName] == 'S':
+      countCurrent[chanName] += 1
+      if countCurrent[chanName] >= lenD[chanName]:
+        lenD[chanName] = 0
+        curCom[chanName] = ''
+        return
+    timeRandom = str(timePhase[chanName][countCurrent[chanName]]).split('-')
+    if len(timeRandom) != 2:
+      timeS = int(timeRandom[0])
+    else:
+      timeS = randint(int(timeRandom[0]), int(timeRandom[1]))
+    timeSlice[chanName] = timeS
+    pinD[chanName].value(int(onOff[chanName][countCurrent[chanName]]))
+    timeCurrent[chanName] = time.ticks_ms()
+
+def parse_command():
+  global curCom, newCom
   global modeRGB,lenRGB,colorRGB,timeStaticRGB,timeChangeRGB,timeCurrentRGB,timeSliceRGB,curCom,rD,bD,gD
-  global lenSTR, modeSTR,onOffSTR,timeCurrentSTR,countCurrentSTR,timeSliceSTR
-  global lenLGT, modeLGT,onOffLGT,timeCurrentLGT,countCurrentLGT,timeSliceLGT
+  global len, mode, onOff, timePhase, timeCurrent, countCurrent, timeSlice
   if 'RGB' in newCom:
     if newCom['RGB'] != curCom['RGB']:
       fields = newCom['RGB'].split('/')
@@ -94,76 +158,20 @@ def parse_command(newCom):
       quantCount = 0
       quantFlag = 0
       timeCurrentRGB = time.ticks_ms()
-  if 'STR' in newCom:
-    if newCom['STR'] != curCom['STR']:
-      fields = newCom['STR'].split('/')
-      if len(fields) < 2:
-        if fields[0] == u'RESET':
-          machine.reset()
-          return
-        else:
-          return
-      if (len(fields)-1)%2 != 0:
-        return
-      curCom['STR'] = newCom['STR']
-      modeSTR = fields[len(fields)-1]
-      lenSTR = int(len(fields)/2)
-      del onOffSTR[:]
-      del timeSTR[:]
-      i = 0
-      while i < lenSTR:
-        onOffSTR.append(fields[i*2])
-        timeSTR.append(fields[i*2+1])
-        i = i + 1
-      pinSTR.value(onOffSTR[0])
-      timeRandomSTR = str(timeSTR[0]).split('-')
-      if len(timeRandomSTR) != 2:
-        timeS = int(timeRandomSTR[0])
-      else:
-        timeS = int(randint(int(timeRandomSTR[0]), int(timeRandomSTR[1])))
-      timeSliceSTR = timeS
-      countCurrentSTR = 0
-      timeCurrentSTR = time.ticks_ms()
+  if 'STR' in newCom: 
+    parse_discr('STR')
   if 'LGT' in newCom:
-    if newCom['LGT'] != curCom['LGT']:
-      fields = newCom['LGT'].split('/')
-      if len(fields) < 2:
-        if fields[0] == u'RESET':
-          machine.reset()
-          return
-        else:
-          return
-      if (len(fields)-1)%2 != 0:
-        return
-      curCom['LGT'] = newCom['LGT']
-      modeLGT = fields[len(fields)-1]
-      lenLGT = int(len(fields)/2)
-      del onOffLGT[:]
-      del timeLGT[:]
-      i = 0
-      while i < lenLGT:
-        onOffLGT.append(fields[i*2])
-        timeLGT.append(fields[i*2+1])
-        i = i + 1
-      pinLGT.value(onOffLGT[0])
-      timeRandomLGT = str(timeLGT[0]).split('-')
-      if len(timeRandomLGT) != 2:
-        timeSL = int(timeRandomLGT[0])
-      else:
-        timeSL = int(randint(int(timeRandomLGT[0]), int(timeRandomLGT[1])))
-      timeSliceLGT = timeSL
-      countCurrentLGT = 0
-      timeCurrentLGT = time.ticks_ms()
-
+    parse_discr('LGT')
+  
 def sub_cb(topic, msg):
-  global newCom, myMAC, topic_sub, topic_sub_id
+  global myMAC, topic_sub, topic_sub_id, newCom
   if topic == topic_sub or topic == topic_sub_id:
     try:
       newCom = ujson.loads(msg)
     except:
       time.sleep_ms(200)
       return
-    parse_command(newCom)
+    parse_command()
     
 def connect_and_subscribe():
   global client_id, mqtt_server, topic_sub, myMAC
@@ -176,7 +184,6 @@ def connect_and_subscribe():
   print('Connected to %s MQTT broker, subscribed to %s topic' % (mqtt_server, topic_sub))
   print('Connected to %s MQTT broker, subscribed to %s topic' % (mqtt_server, topic_sub_id))
   greenPin.value(0)  
-  ## Не забыть раскомментировать три следующих строки перед реальным использвоанием!!!
   #redPWM = machine.PWM(redPin, freq=1000)
   #greenPWM = machine.PWM(greenPin, freq=1000)
   #bluePWM = machine.PWM(bluePin, freq=1000)
@@ -194,6 +201,7 @@ def restart_and_reconnect():
 
 try:
   client = connect_and_subscribe()
+  print ('Connect successfull')
 except OSError as e:
   restart_and_reconnect()
 
@@ -202,7 +210,6 @@ while True:
     client.check_msg()
     if lenRGB > 0:
       if (time.ticks_ms() - timeCurrentRGB) >= timeSliceRGB:
-        # Смена цвета
         if modeRGB == 'C' and quantFlag == 0:
           numBefore = countCurrentRGB
           countCurrentRGB = (countCurrentRGB + 1) % lenRGB
@@ -214,7 +221,6 @@ while True:
             curCom['RGB'] = ''
             continue
         if timeChangeRGB[numBefore] > 0 and quantFlag == 0 :
-          # Плавное изменение цвета
           timeSliceRGB = int(timeChangeRGB[numBefore]/quantNum)
           rDDelta = int((int(colorRGB[countCurrentRGB][0:2],16)*4 - int(colorRGB[numBefore][0:2],16)*4)/quantNum)
           gDDelta = int((int(colorRGB[countCurrentRGB][2:4],16)*4 - int(colorRGB[numBefore][2:4],16)*4)/quantNum)
@@ -247,46 +253,10 @@ while True:
         greenPWM.duty(gD)
         bluePWM.duty(bD)
         timeCurrentRGB = time.ticks_ms()
-    if lenSTR > 0:
-      if (time.ticks_ms() - timeCurrentSTR) >= timeSliceSTR:
-        # Смена такта
-        if modeSTR == 'C':
-          countCurrentSTR = (countCurrentSTR + 1) % lenSTR
-        elif modeSTR == 'S':
-          countCurrentSTR += 1
-          if countCurrentSTR >= lenSTR:
-            lenSTR = 0
-            curCom['STR'] = ''
-            continue
-        timeRandomSTR = str(timeSTR[countCurrentSTR]).split('-')
-        if len(timeRandomSTR) != 2:
-          timeS = int(timeRandomSTR[0])
-        else:
-          timeS = randint(int(timeRandomSTR[0]), int(timeRandomSTR[1]))
-        timeSliceSTR = timeS
-        pinSTR.value(int(onOffSTR[countCurrentSTR]))
-        timeCurrentSTR = time.ticks_ms()
-    if lenLGT > 0:
-      if (time.ticks_ms() - timeCurrentLGT) >= timeSliceLGT:
-        # Смена такта
-        if modeLGT == 'C':
-          countCurrentLGT = (countCurrentLGT + 1) % lenLGT
-        elif modeLGT == 'S':
-          countCurrentLGT += 1
-          if countCurrentLGT >= lenLGT:
-            lenLGT = 0
-            curCom['LGT'] = ''
-            continue
-        timeRandomLGT = str(timeLGT[countCurrentLGT]).split('-')
-        if len(timeRandomLGT) != 2:
-          timeSL = int(timeRandomLGT[0])
-        else:
-          timeSL = randint(int(timeRandomLGT[0]), int(timeRandomLGT[1]))
-        timeSliceLGT = timeSL
-        pinLGT.value(int(onOffLGT[countCurrentLGT]))
-        timeCurrentLGT = time.ticks_ms()
-      
+    if lenD['STR'] > 0:
+      exec_discr('STR')
+    if lenD['LGT'] > 0:
+      exec_discr('LGT')
   except OSError as e:
-    restart_and_reconnect()
-
+    machine.reset()
 
