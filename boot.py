@@ -13,7 +13,6 @@ esp.osdebug(None)
 import gc
 gc.collect()
 
-
 ssid = 'P2797-24'
 password = 'z0BcfpHu'
 mqtt_server = '192.168.137.1'
@@ -24,8 +23,8 @@ redPin = machine.Pin(15, machine.Pin.OUT)
 greenPin = machine.Pin(12, machine.Pin.OUT)
 bluePin = machine.Pin(13, machine.Pin.OUT)
 
-pinSTR = machine.Pin(15, machine.Pin.OUT) # Временное решение - красный дублирует сирену.
-pinLGT = machine.Pin(12, machine.Pin.OUT) # Временное решение - зелёный дублирует белый свет.
+pinSTR = machine.Pin(15, machine.Pin.OUT) 
+pinLGT = machine.Pin(12, machine.Pin.OUT) 
 
 topic_sub = b'RGB'
 topic_pub = b'RGBASK'
@@ -52,5 +51,6 @@ redPin.value(0)
 print('Connection successful')
 print(station.ifconfig())
 topic_sub_id = b'RGB/'+myMAC
+
 
 
