@@ -2,55 +2,31 @@
 # This file is executed on every boot (including wake-boot from deepsleep)
 
 import time
-from umqttsimple import MQTTClient
-
-import ubinascii
-import machine
-import micropython
-import network
 import esp
-esp.osdebug(None)
 import gc
+# импортируем только те модули, которые нужны
+from network import WLAN, STA_IF
+
+esp.osdebug(None)
 gc.collect()
 
+# отделили конфиг в отдельный файл
+import config
 
-ssid = 'P2797-24'
-password = 'z0BcfpHu'
-mqtt_server = '192.168.137.1'
-
-client_id = ubinascii.hexlify(machine.unique_id())
-
-redPin = machine.Pin(15, machine.Pin.OUT)
-greenPin = machine.Pin(12, machine.Pin.OUT)
-bluePin = machine.Pin(13, machine.Pin.OUT)
-
-pinSTR = machine.Pin(15, machine.Pin.OUT) # Временное решение - красный дублирует сирену.
-pinLGT = machine.Pin(12, machine.Pin.OUT) # Временное решение - зелёный дублирует белый свет.
-
-topic_sub = b'RGB'
-topic_pub = b'RGBASK'
-
-last_message = 0
-message_interval = 5
-counter = 0
-
-station = network.WLAN(network.STA_IF)
-
+station = WLAN(STA_IF)
 station.active(True)
-station.connect(ssid, password)
+station.connect(config.cfg['wlan_ssid'], config.cfg['wlan_password'])
+
+signal_pin = config.pins['red']  # здесь создается только ссылка на словарь
 
 while station.isconnected() == False:
-  for x in range (4):
-    redPin.value(1)
-    time.sleep_ms(250)
-    redPin.value(0)
-    time.sleep_ms(250)
-  pass
+    for x in range (4):
+        signal_pin.value(1)
+        time.sleep(.25)
+        signal_pin.value(0)
+        time.sleep(.25)
 
-myMAC = ubinascii.hexlify(network.WLAN().config('mac'))  
-redPin.value(0)
 print('Connection successful')
 print(station.ifconfig())
-topic_sub_id = b'RGB/'+myMAC
-
+signal_pin.value(0)
 
