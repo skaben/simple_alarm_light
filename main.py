@@ -1,5 +1,3 @@
-
-
 import machine
 import time
 import ujson
@@ -7,7 +5,6 @@ import network
 import urandom
 import umqttsimple
 import config
-
 
 pwm = dict()
 
@@ -24,6 +21,7 @@ def wifi_init():
             time.sleep(.25)
     print('Connection successful')
     print(station.ifconfig())
+    
     signal_pin.value(0)
     
 def randint(min, max):
@@ -110,16 +108,16 @@ def manage_discr(payload, chan_name):
     manage_seq[chan_name]['current_command'] = payload 
     manage_seq[chan_name].update({
         'mode': payload[-1],  
-        'len': int((len(payload)-1)/3),
+        'len': int((len(payload)-1)/2),
         'onoff': [],
         'time_static': [],
         'count':0,
     })
     manage_seq[chan_name]['time_change'] = []
     for i in range(manage_seq[chan_name]['len']):
-        manage_seq[chan_name]['onoff'].append(payload[i * 3])
-        manage_seq[chan_name]['time_static'].append(payload[i * 3 + 1])
-    config.pins[chanName].value(int(manage_seq[chan_name]['onoff'][manage_seq[chan_name]['count']]))
+        manage_seq[chan_name]['onoff'].append(payload[i * 2])
+        manage_seq[chan_name]['time_static'].append(payload[i * 2 + 1])
+    config.pins[chan_name].value(int(manage_seq[chan_name]['onoff'][manage_seq[chan_name]['count']]))
     manage_seq[chan_name]['time_slice'] = time_phase(str(manage_seq['RGB']['time_static'][0]))
 
 def exec_discr(chan_name):
@@ -265,4 +263,5 @@ def main():
 
 
 main()
+
 
