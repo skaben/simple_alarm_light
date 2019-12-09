@@ -1,3 +1,5 @@
+
+
 import machine
 import time
 import ujson
@@ -6,8 +8,8 @@ import urandom
 import umqttsimple
 import config
 
+
 pwm = dict()
-delta = dict()
 
 def wifi_init():
     station = network.WLAN(network.STA_IF)
@@ -25,18 +27,16 @@ def wifi_init():
     signal_pin.value(0)
     
 def randint(min, max):
-    span = max - min + 1
+    span = int(max) - int(min) + 1
     div = 0x3fffffff // span
     offset = urandom.getrandbits(30) // div
-    val = min + offset
+    val = int(min) + offset
     return val
 
 def set_pwm():
     try:
         for color in pwm:
-            print(color)
-            print(manage_seq['RGB'][color])
-            pwm[color].duty(int(manage_seq['RGB'][color]))
+            pwm[color].duty(manage_seq['RGB'][color])
     except:
         print('cannot set PWM, check config:\n{}'.format(pwm))
         return None
@@ -68,13 +68,13 @@ manage_seq['RGB'].update({
             'red': 0,
             'green': 0,
             'blue': 0,
+            'delta':{'red':0,'green':0,'blue':0},
             'time_change': [],
-            'quant': {'num':20, 'count':0, 'flag':0},
+            'quant': {'num':50, 'count':0, 'flag':0},
 })
 
 def time_phase(time_change):
     t = time_change.split('-')
-    # print(int(t[0]))
     if len(t) < 2:
         return int(t[0])
     else:
@@ -93,17 +93,14 @@ def manage_rgb(payload, chan_name):
         'count': 0,
         'time_current': time.ticks_ms(),
     })
-
     for i in range(manage_seq['RGB']['len']):
         manage_seq['RGB']['color'].append(payload[i * 3])
         manage_seq['RGB']['time_static'].append(payload[i * 3 + 1])
         manage_seq['RGB']['time_change'].append(payload[i * 3 + 2])
-        
     manage_seq['RGB']['time_slice'] = time_phase(manage_seq['RGB']['time_static'][0])
     manage_seq['RGB']['time_current'] = time.ticks_ms()
     manage_seq['RGB']['quant']['count'] = 0
     manage_seq['RGB']['quant']['flag'] = 0
-
     manage_pwm(0)
 
 def manage_discr(payload, chan_name):
@@ -111,20 +108,19 @@ def manage_discr(payload, chan_name):
         # todo: 芯斜褉邪斜芯褌褔懈泻 芯褕懈斜芯泻 薪邪 褋谢褍褔邪泄 泻褉懈胁芯谐芯 褎芯褉屑邪褌邪
         return
     manage_seq[chan_name]['current_command'] = payload 
-    # 胁芯褌 写谢褟 褌邪泻懈褏 胁械褖械泄 谢褍褔褕械 懈褋锌芯谢褜蟹芯胁邪褌褜 芯斜褗械泻褌褘 懈 褋芯蟹写邪褌褜 懈薪褋褌邪薪褋 泻谢邪褋褋邪
     manage_seq[chan_name].update({
-        'mode': payload[-1],  # -1 褝褌芯 锌芯褋谢械写薪懈泄 褝谢械屑械薪褌 褋锌懈褋泻邪
-        'len': int((len(payload)-1)/2),  # 泻芯谢懈褔械褋褌胁芯 褑胁械褌芯胁
+        'mode': payload[-1],  
+        'len': int((len(payload)-1)/3),
         'onoff': [],
         'time_static': [],
         'count':0,
     })
+    manage_seq[chan_name]['time_change'] = []
     for i in range(manage_seq[chan_name]['len']):
-        manage_seq[chan_name]['onoff'].append(payload[i * 2])
-        manage_seq[chan_name]['time_static'].append(payload[i * 2 + 1])
-    config.pins[chan_name].value(int(manage_seq[chan_name]['onoff'][manage_seq[chan_name]['count']]))
-    manage_seq[chan_name]['time_slice'] = time_phase(str(manage_seq[chan_name]['time_static'][0]))
-    print(manage_seq[chan_name])
+        manage_seq[chan_name]['onoff'].append(payload[i * 3])
+        manage_seq[chan_name]['time_static'].append(payload[i * 3 + 1])
+    config.pins[chanName].value(int(manage_seq[chan_name]['onoff'][manage_seq[chan_name]['count']]))
+    manage_seq[chan_name]['time_slice'] = time_phase(str(manage_seq['RGB']['time_static'][0]))
 
 def exec_discr(chan_name):
     if (time.ticks_ms() - manage_seq[chan_name]['time_current']) >= manage_seq[chan_name]['time_slice']:
@@ -136,18 +132,11 @@ def exec_discr(chan_name):
                 manage_seq[chan_name]['len'] = 0
                 manage_seq[chan_name]['current_command'] = []
                 return
-        manage_seq[chan_name]['time_slice'] = time_phase(manage_seq[chan_name]['time_static'][manage_seq[chan_name]['count']])
-        config.pins[chan_name].value(int(manage_seq[chan_name]['onoff'][manage_seq[chan_name]['count']]))
-        manage_seq[chan_name]['time_current'] = time.ticks_ms()
-        print(time.ticks_ms())
+    manage_seq[chan_name]['time_slice'] = time_phase(manage_seq[chan_name]['time_change'][manage_seq[chan_name]['count']])
+    config.pins[chanName].value(int(manage_seq[chan_name]['onoff'][manage_seq[chan_name]['count']]))
+    manage_seq[chan_name]['time_current'] = time.ticks_ms()
 
 def parse_command(new_command):
-#    dispatcher = {
-#        'LGT': manage_lgt,
-#        'STR': manage_discr,
-#        'RGB': manage_discr
-#    }
-#    print('Functions set')
     for cmd in manage_seq:
         print(cmd)
         data = new_command.get(cmd) 
@@ -164,9 +153,11 @@ def parse_command(new_command):
                     manage_discr(payload,cmd)
 
 def mqtt_callback(topic, msg):
+    print(msg)
     if topic in (config.topics['sub'], config.topics['sub_id']):
         try:
             command = ujson.loads(msg)
+            print(command)
             parse_command(command)
             return 
         except:
@@ -183,9 +174,8 @@ def connect_and_subscribe():
       client.subscribe(t)
     print('connected to {}, subscribed to {}'.format(server, sub_topics))
     config.pins['green'].value(0)
-    cmd_out = 'CUP/{"lts":"'+str(time.ticks_ms())+'"uid":"'+str(config.cfg['mac'])+'"}'
+    cmd_out = 'CUP/{"lts":"'+str(time.ticks_ms())+'"}'
     client.publish(config.topics['pub_id'], cmd_out)
-    client.publish(config.topics['pub'], cmd_out)
     return client
 
 def restart_and_reconnect():
@@ -203,21 +193,26 @@ def manage_pwm_delta(prev_idx):
         idx = manage_seq['RGB']['count']
         color_now = manage_seq['RGB']['color'][idx]
         color_prev = manage_seq['RGB']['color'][prev_idx]
-        delta['red'] = (_hex(color_now[0:2]) - _hex(color_prev[0:2])) / manage_seq['RGB']['quant']['num']
-        delta['green'] = (_hex(color_now[2:4]) - _hex(color_prev[2:4])) / manage_seq['RGB']['quant']['num']
-        delta['blue'] = (_hex(color_now[4:6]) - _hex(color_prev[4:6])) / manage_seq['RGB']['quant']['num']
+        dred = int((_hex(color_now[:2]) - _hex(color_prev[:2]))/manage_seq['RGB']['quant']['num'])
+        dgreen = int((_hex(color_now[2:4]) - _hex(color_prev[2:4]))/manage_seq['RGB']['quant']['num'])
+        dblue = int((_hex(color_now[4:6]) - _hex(color_prev[4:6]))/manage_seq['RGB']['quant']['num'])
+
+        manage_seq['RGB']['delta']['red'] = dred
+        manage_seq['RGB']['delta']['green'] = dgreen
+        manage_seq['RGB']['delta']['blue'] = dblue
         manage_seq['RGB']['quant']['flag'] = 1
     manage_seq['RGB']['quant']['count'] += 1
-    for key in delta:
-        manage_seq['RGB'][key] += delta[key]
+    for key in manage_seq['RGB']['delta']:
+        manage_seq['RGB'][key] += manage_seq['RGB']['delta'][key]
     set_pwm()
-
+  
 def manage_pwm(idx):
     manage_seq['RGB']['red'] = _hex(manage_seq['RGB']['color'][idx][:2])
     manage_seq['RGB']['green'] = _hex(manage_seq['RGB']['color'][idx][2:4])
     manage_seq['RGB']['blue'] = _hex(manage_seq['RGB']['color'][idx][4:6])
     set_pwm()
-    
+
+ 
 def main():
     global pwm
     try:
@@ -230,15 +225,12 @@ def main():
     except OSError as e:
         print(e)
         restart_and_reconnect()
-        
     pwm = {p: machine.PWM(config.pins[p], freq=1000) for p in config.pins if p in ('red', 'green', 'blue')}
-    
-    print(pwm)
-    
     while True:
         client.check_msg()
         if manage_seq['RGB'].get('len') > 0:
             if (time.ticks_ms() - manage_seq['RGB']['time_current']) >= manage_seq['RGB']['time_slice']:
+                print(manage_seq['RGB']['count'])
                 before = manage_seq['RGB']['count']
                 manage_seq['RGB']['time_current'] = time.ticks_ms()
                 if manage_seq['RGB']['quant']['flag'] == 0:
@@ -264,13 +256,13 @@ def main():
                     if manage_seq['RGB']['quant']['count'] >= manage_seq['RGB']['quant']['num']:
                         manage_seq['RGB']['quant']['count'] = 0
                         manage_seq['RGB']['quant']['flag'] = 0
-                        # manage_pwm(manage_seq['RGB']['count'])
                         manage_seq['RGB']['time_slice'] = time_phase(manage_seq['RGB']['time_static'][manage_seq['RGB']['count']])
                         continue
         if manage_seq['STR'].get('len') > 0:
             exec_discr('STR')
         if manage_seq['LGT'].get('len') > 0:
             exec_discr('LGT')
-main()
 
+
+main()
 
