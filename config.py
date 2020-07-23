@@ -13,7 +13,7 @@ cfg = {
     'counter': 0,
     'wlan_ssid': 'P2797-24',  
     'wlan_password': 'z0BcfpHu',
-    'quant_num': 50
+    'quant_num': 50,
 }
 
 pins = {
@@ -25,11 +25,14 @@ pins = {
 }
 
 topics = {
-    'sub': b'RGB',
-    'pub': b'RGBASK',
-    'pub_id': b'RGBASK/' + cfg['mac'],
-    'sub_id': b'RGB/' + cfg['mac']
+    'sub': b'rgb',
+    'sub_id': b'rgb/' + cfg['mac'],
+    'pub': b'ask/rgb/' + cfg['mac'] + b'/SUP',
 }
 
-
+commands = {
+    "online": b'{"online"}',
+    "ping": b'{"ping"}',
+    "offline": b'{"offline"}'
+}
 

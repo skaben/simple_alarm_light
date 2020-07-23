@@ -1,8 +1,4 @@
-
-try:
-    import usocket as socket
-except:
-    import socket
+import usocket as socket
 import ustruct as struct
 from ubinascii import hexlify
 
@@ -30,6 +26,7 @@ class MQTTClient:
         self.lw_msg = None
         self.lw_qos = 0
         self.lw_retain = False
+        self.connected = False
 
     def _send_str(self, s):
         self.sock.write(struct.pack("!H", len(s)))
@@ -101,11 +98,13 @@ class MQTTClient:
         assert resp[0] == 0x20 and resp[1] == 0x02
         if resp[3] != 0:
             raise MQTTException(resp[3])
+        self.connected = True
         return resp[2] & 1
 
     def disconnect(self):
         self.sock.write(b"\xe0\0")
         self.sock.close()
+        self.connected = False
 
     def ping(self):
         self.sock.write(b"\xc0\0")
@@ -146,7 +145,8 @@ class MQTTClient:
             assert 0
 
     def subscribe(self, topic, qos=0):
-        assert self.cb is not None, "Subscribe callback is not set"
+        if not self.cb:
+            raise OSError("Subscribe callback is not set")
         pkt = bytearray(b"\x82\0\0\0")
         self.pid += 1
         struct.pack_into("!BH", pkt, 1, 2 + 2 + len(topic) + 1, self.pid)
@@ -158,16 +158,11 @@ class MQTTClient:
             op = self.wait_msg()
             if op == 0x90:
                 resp = self.sock.read(4)
-                #print(resp)
                 assert resp[1] == pkt[2] and resp[2] == pkt[3]
                 if resp[3] == 0x80:
                     raise MQTTException(resp[3])
                 return
 
-    # Wait for a single incoming MQTT message and process it.
-    # Subscribed messages are delivered to a callback previously
-    # set by .set_callback() method. Other (internal) MQTT
-    # messages processed internally.
     def wait_msg(self):
         res = self.sock.read(1)
         self.sock.setblocking(True)
@@ -200,10 +195,6 @@ class MQTTClient:
         elif op & 6 == 4:
             assert 0
 
-    # Checks whether a pending message from server is available.
-    # If not, returns immediately with None. Otherwise, does
-    # the same processing as wait_msg.
     def check_msg(self):
         self.sock.setblocking(False)
         return self.wait_msg()
-
