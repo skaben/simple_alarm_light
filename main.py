@@ -13,7 +13,7 @@ station = network.WLAN(network.STA_IF)
 def wifi_init():
     station.active(True)
     station.connect(config.cfg['wlan_ssid'], config.cfg['wlan_password'])
-    while station.isconnected() == False:
+    while not station.isconnected():
         for x in range (6):
             pwm['red'].duty(1023)
             time.sleep(.25)
@@ -65,6 +65,7 @@ def create_peripheral():
                           'current_command' : []
                         }  
     return peripheral_dict
+
 
 manage_seq = dict()
 manage_seq['LGT'] = create_peripheral()
@@ -145,7 +146,7 @@ def exec_discr(chan_name):
 def parse_command(new_command):
     for cmd in manage_seq:
         data = new_command.get(cmd) 
-        if data == None:
+        if not data:
             continue
         if data != manage_seq[cmd]['current_command']:
             payload = data.split('/')
@@ -198,7 +199,7 @@ def connect_and_subscribe():
 
 def restart_and_reconnect():
     print('Failed to connect to MQTT broker. Reconnecting...')
-    if station.isconnected() == False:
+    if not station.isconnected():
         print('WiFi connection lost!')
         wifi_init()
     for _ in range(6):
@@ -235,7 +236,7 @@ def manage_pwm(idx):
 
 def mqtt_init():
     manage_seq['RGB']['mqtt_conn'] = False
-    while manage_seq['RGB']['mqtt_conn'] == False:
+    while not manage_seq['RGB']['mqtt_conn']:
         restart_and_reconnect()
         client = connect_and_subscribe()
     return client
@@ -248,7 +249,7 @@ def pinger_init(client):
 
     tim = machine.Timer(-1)
     period = config.cfg['message_interval'] * 1000
-    tim.init(period=period, mode=Timer.PERIODIC, callback=pinger)
+    tim.init(period=period, mode=machine.Timer.PERIODIC, callback=pinger)
 
     return tim
 
@@ -299,5 +300,6 @@ def main():
             exec_discr('STR')
         if manage_seq['LGT'].get('len') > 0:
             exec_discr('LGT')
+
 
 main()
