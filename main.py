@@ -154,9 +154,9 @@ def parse_command(new_command):
                 machine.reset()
             else:
                 if cmd == 'RGB':
-                    manage_rgb(payload,cmd)
+                    manage_rgb(payload, cmd)
                 else:
-                    manage_discr(payload,cmd)
+                    manage_discr(payload, cmd)
 
 
 def mqtt_callback(topic, msg):

@@ -25,7 +25,7 @@ pins = {
 }
 
 topics = {
-    'sub': b'rgb',
+    'sub': b'rgb/all',
     'sub_id': b'rgb/' + cfg['mac'],
     'pub': b'ask/rgb/' + cfg['mac'] + b'/SUP',
 }
